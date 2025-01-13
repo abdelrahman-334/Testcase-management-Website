@@ -34,4 +34,20 @@ const authenticate = asyncHandler(
   }
 );
 
-export { authenticate };
+const isRole = (role: string) => asyncHandler(
+  async (req:Request , res: Response, next: NextFunction) => {
+    try{
+      const { email } = req.body;
+      const user = await User.findOne({ email });
+      if(user?.role != role){
+        throw new AuthenticationError(`you are not authorized to view this page, role needed ${role}`)
+      }
+      next();
+    }
+    catch(e){
+      throw new AuthenticationError(`you are not authorized to view this page ${e}`)
+    }
+  }
+);
+
+export { authenticate, isRole };

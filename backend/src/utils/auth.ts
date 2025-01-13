@@ -13,6 +13,7 @@ const generateToken = (res: Response, userId: any) => {
     sameSite: "strict",
     maxAge: 60 * 60 * 1000,
   });
+  return token;
 };
 
 const clearToken = (res: Response) => {

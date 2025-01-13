@@ -7,7 +7,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/errorMiddleware";
 import userRouter from "./routes/userRouter";
-import { authenticate } from "./middleware/authMiddleware";
+import { authenticate, isRole } from "./middleware/authMiddleware";
 
 
 dotenv.config();
@@ -39,7 +39,7 @@ declare global {
   }
 }
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 app.use(
     cors({
@@ -50,7 +50,9 @@ app.use(
 
 
 app.use(authRouter);
-app.use("/users", authenticate, userRouter);
+app.use("/users", authenticate,isRole("Admin"), userRouter);
+
+app.use(errorHandler)
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

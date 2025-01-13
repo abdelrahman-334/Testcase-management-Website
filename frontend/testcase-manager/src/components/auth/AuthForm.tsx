@@ -11,6 +11,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link";
+import { useRouter } from "next/router";
+
 
 type FormType = "login" | "sign-up";
 
@@ -20,15 +22,21 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({
+  
   className,
   type,
   ...props
 }: LoginFormProps) {
   // State for form fields
+  const router = useRouter();
+  const [username, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"developer" | "qa-lead" | "">("");
+  const [role, setRole] = useState<"Tester" | "QALead" | "">("");
 
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+  };
   // Handle input changes
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
@@ -39,22 +47,44 @@ export default function LoginForm({
   };
 
   const handleRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRole(e.target.value as "developer" | "qa-lead");
+    setRole(e.target.value as "Tester" | "QALead");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Now you have all the form data in state
-    const formData = {
-      email,
-      password,
-      role,
-    };
+  const url = type === "login" ? "/login" : "/register"; // Choose API endpoint based on type
+  const payload = type === "login"
+    ? { email, password } // Login requires only email and password
+    : { username, email, password, role }; // Sign-up requires additional fields
 
-    console.log("Form Data Submitted:", formData);
-    // You can send the formData to your API or handle it as needed
-  };
+  try {
+    const response = await fetch(`http://localhost:4000${url}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload), // Send form data as JSON
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error:", errorData.message);
+      alert(`Error: ${errorData.message}`);
+      return;
+    }
+
+    const data = await response.json();
+    console.log("Success:", data);
+
+    // Redirect or update UI based on successful response
+    if (type === "login") {
+      router.push("/")
+    } else {
+      router.push("/sign-in")
+    }
+  } catch (error) {
+    console.error("An error occurred:", error);
+    alert("An error occurred. Please try again.");
+  }};
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -70,6 +100,16 @@ export default function LoginForm({
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
+            { type == "sign-up" && <div className="grid gap-2" >
+                <Label htmlFor="email">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username} // Bind to state
+                  onChange={handleNameChange} // Update state on change
+                  required
+                />
+              </div>}
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -81,6 +121,7 @@ export default function LoginForm({
                   required
                 />
               </div>
+              
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
@@ -108,11 +149,11 @@ export default function LoginForm({
                   <div className="flex gap-4">
                     <div className="flex items-center">
                       <input
-                        id="developer"
+                        id="Tester"
                         type="radio"
                         name="role"
-                        value="developer"
-                        checked={role === "developer"}
+                        value="Tester"
+                        checked={role === "Tester"}
                         onChange={handleRoleChange} // Update role on change
                         className="mr-2"
                         required
@@ -125,7 +166,7 @@ export default function LoginForm({
                         type="radio"
                         name="role"
                         value="qa-lead"
-                        checked={role === "qa-lead"}
+                        checked={role === "QALead"}
                         onChange={handleRoleChange} // Update role on change
                         className="mr-2"
                         required
