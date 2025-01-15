@@ -1,9 +1,9 @@
 export default function Home() {
     return (
-      <div> 
+      <div suppressHydrationWarning> 
+        
         hello
       </div>
-      
     );
   }
   

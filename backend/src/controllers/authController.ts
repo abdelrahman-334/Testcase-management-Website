@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import User from "../models/userModel";
 import { generateToken, clearToken } from "../utils/auth";
+import { serialize } from "cookie";
+
 
 const registerUser = async (req: Request, res: Response) => {
   const { username, email, role, password } = req.body;
@@ -40,7 +42,13 @@ const authenticateUser = async (req: Request, res: Response) => {
   
   if (user && (await user.comparePassword(password))) {
     const token = generateToken(res, user._id);
-    res.setHeader("Authorization", `Bearer ${token}`);
+    res.cookie("jwt", token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production", // Ensure this is true in production
+      maxAge: 60 * 60 * 24 * 1000, // Token expires in 1 day (in milliseconds)
+      path: "/",
+    });
+
 
     res.status(201).json({
       id: user._id,

@@ -1,5 +1,6 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document, Model, Types } from "mongoose";
 import bcrypt from "bcryptjs";
+import { IProject } from "./projectModel";
 
 // Define an interface for the User document
 export interface IUser extends Document {
@@ -7,6 +8,7 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
+  projects: Array<Types.ObjectId>
   role: string;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
@@ -16,7 +18,8 @@ const UserSchema: Schema<IUser> = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   email: { type: String, required: true , unique: true},
-  role: {type: String, default:"Tester", enum:["Admin","Tester","QALead"]}
+  role: {type: String, default:"Tester", enum:["Admin","Tester","QALead"]},
+  projects: [{ type: mongoose.Schema.Types.ObjectId, ref: "Project" }], 
 }, { timestamps: true });
 
 // Pre-save hook to hash the password
