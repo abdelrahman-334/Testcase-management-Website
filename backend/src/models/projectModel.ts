@@ -11,7 +11,7 @@ export interface IProject extends Document {
 }
 
 // Define the User schema
-const ProjectSchema: Schema = new mongoose.Schema({
+const ProjectSchema: Schema = new mongoose.Schema<IProject>({
   name : {required: true, type: String},
   leader : {required: true, type: mongoose.Schema.Types.ObjectId, ref: "User"},
   cycle : {default : 0, type: Number},

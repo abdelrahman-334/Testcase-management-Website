@@ -1,59 +1,112 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import Project from "../models/projectModel";
 import User from "../models/userModel";
 
 // Add a new project
-export const addProject = async (req: Request, res: Response) => {
+export const addProject = async (req: Request, res: Response,next: NextFunction) => {
     try {
       
       const userId = req.user?._id; // Get the user's ID from the authenticated request
+      const username = (await User.findById(userId))?.username
       const { name, cycle = 0, build = 0 } = req.body;
   
       const newProject = await Project.create({ name, leader: userId, cycle, build });
   
       // Add the project to the user's projects array
-      await User.findByIdAndUpdate(userId, { $push: { projects: newProject._id } });
+        await User.findByIdAndUpdate(userId, { $push: { projects: newProject._id } });
   
-      return res.status(201).json(newProject);
+       res.status(201).json({updatedProject:newProject,name:username });
     } 
     catch (error) {
-        if (error instanceof Error) {
-          return res.status(500).json({ error: error.message });
-        }
-        return res.status(500).json({ error: "An unexpected error occurred" });
+        next(error)
       }
       
   };
   
+  export const addUserToProject = async (req: Request, res: Response,next: NextFunction) => {
+    try {
+      
+      const { projectId } = req.params;
+      const { email } = req.body;
+      
+      const user = await User.findOne({email:email});
+      if(!user){
+        return next(new Error( `User not found with email: ${email} ` ));
+      }
+      // Add the project to the user's projects array
+      await User.findByIdAndUpdate(user?._id, { $push: { projects: projectId } });
+  
+       res.status(201).json(user);
+    } 
+    catch (error) {
+        next(error)
+      }
+      
+  };
+
+  export const removeUserFromProject = async (req: Request, res: Response,next: NextFunction) => {
+    try {
+      
+      const { projectId } = req.params;
+      const { email } = req.body;
+      
+      const user = await User.findOne({email:email});
+      if(!user){
+        return next(new Error( `User not found with email: ${email} ` ));
+      }
+      // Add the project to the user's projects array
+      await User.findByIdAndUpdate(user?._id, { $pull: { projects: projectId } });
+  
+       res.status(201).json(user);
+    } 
+    catch (error) {
+        next(error)
+      }
+      
+  };
+
+
+export const getUsersForProject = async (req:Request, res:Response, next: NextFunction) => {
+  try{
+  const {projectId} = req.params;
+  const usersInProject = await User.find({ projects: {$in: projectId} }).select("username email");
+  if (!usersInProject || usersInProject.length === 0) {
+    next(new Error ("No users found for this project." ));
+  }
+  
+  res.status(200).json(usersInProject);
+  }
+ catch (error) {
+  next(error);
+}
+}
 
 // Delete a project
-export const deleteProject = async (req: Request, res: Response) => {
+export const deleteProject = async (req: Request, res: Response,next: NextFunction) => {
     try {
       const userId = req.user?._id; // Get the user's ID from the authenticated request
       const { projectId } = req.params;
   
       const project = await Project.findOneAndDelete({ _id: projectId, leader: userId });
       if (!project) {
-        return res.status(404).json({ error: "Project not found or not authorized to delete" });
+        return next(new Error( "Project not found or not authorized to delete" ));
       }
   
       // Remove the project from the user's projects array
       await User.findByIdAndUpdate(userId, { $pull: { projects: projectId } });
   
-      return res.status(200).json({ message: "Project deleted successfully" });
+       res.status(200).json({ message: "Project deleted successfully" });
+       
     } 
     catch (error) {
-        if (error instanceof Error) {
-          return res.status(500).json({ error: error.message });
-        }
-        return res.status(500).json({ error: "An unexpected error occurred" });
+        next(error)
       }
       
   };
   
 
 // Update project name
-export const updateProjectName = async (req: Request, res: Response) => {
+export const updateProjectName = async (req: Request, res: Response,next: NextFunction) => {
     try {
       const userId = req.user?._id; // Get the user's ID from the authenticated request
       const { projectId } = req.params;
@@ -66,43 +119,96 @@ export const updateProjectName = async (req: Request, res: Response) => {
       );
   
       if (!updatedProject) {
-        return res.status(404).json({ error: "Project not found or not authorized to update" });
+         return next(new Error(`Project not found or not authorized to update` ));
       }
   
-      return res.status(200).json(updatedProject);
+       res.status(200).json(updatedProject);
     }
     catch (error) {
-        if (error instanceof Error) {
-          return res.status(500).json({ error: error.message });
-        }
-        return res.status(500).json({ error: "An unexpected error occurred" });
+        next(error)
       }
       
   };
   
+  export const getProjectById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const userId = req.user?._id; // Get the user's ID from the authenticated request
+      const { projectId } = req.params; // Get the project ID from the route parameters
+  
+      // Find the project with the given ID where the user is the leader
+      const project = await Project.findOne({
+        _id: projectId,
+        leader: userId,
+      });
+  
+      if (!project) {
+        // If no project is found, pass an error to the error handler
+        return next(new Error(`Project not found or not authorized to view`));
+      }
+  
+      // Return the project if found
+      res.status(200).json(project);
+    } catch (error) {
+      next(error); // Pass any caught errors to the error handler
+    }
+  };
+
+  export const getProject = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const userId = req.user?._id; // Get the user's ID from the authenticated request
+      const { projectId } = req.params; // Get the project ID from the route parameters
+  
+      // Find the project with the given ID where the user is the leader
+      const project = await Project.findOne({
+        _id: projectId,
+        leader: userId,
+      });
+  
+      if (!project) {
+        // If no project is found, pass an error to the error handler
+        return next(new Error(`Project not found or not authorized to view`));
+      }
+  
+      // Return the project if found
+      res.status(200).json(project);
+    } catch (error) {
+      next(error); // Pass any caught errors to the error handler
+    }
+  };
 
 // Retrieve projects for a specific user
-export const getUserProjects = async (req: Request, res: Response) => {
+export const getUserProjects  = async (req: Request, res: Response,next: NextFunction) : Promise<void> => {
   try {
-    const { userId } = req.params;
+    const  userId  = req.user?._id;
 
-    const user = await User.findById(userId).populate("projects");
+    const user = await User.findById(userId).populate({
+      path: "projects",
+      populate: {
+        path: "leader", // Populate the `leader` field within each project
+        select: "username", // Only retrieve the leader's name
+      },
+    });
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return next(new Error( "User not found" ));
     }
-
-    return res.status(200).json(user.projects);
+     
+     res.status(200).json(user?.projects);
   } catch (error) {
-    if (error instanceof Error) {
-      return res.status(500).json({ error: error.message });
-    }
-    return res.status(500).json({ error: "An unexpected error occurred" });
+        next(error);
   }
   
 };
 
 // Increment project cycle
-export const incrementCycle = async (req: Request, res: Response) => {
+export const incrementCycle = async (req: Request, res: Response,next: NextFunction) => {
     try {
       const userId = req.user?._id; // Get the user's ID from the authenticated request
       const { projectId } = req.params;
@@ -114,23 +220,20 @@ export const incrementCycle = async (req: Request, res: Response) => {
       );
   
       if (!updatedProject) {
-        return res.status(404).json({ error: "Project not found or not authorized to update" });
+        return next(new Error( "Project not found or not authorized to update" ));
       }
   
-      return res.status(200).json(updatedProject);
+       res.status(200).json(updatedProject);
     } 
     catch (error) {
-        if (error instanceof Error) {
-          return res.status(500).json({ error: error.message });
-        }
-        return res.status(500).json({ error: "An unexpected error occurred" });
+        next(error);
       }
       
   };
   
 
 // Increment project build
-export const incrementBuild = async (req: Request, res: Response) => {
+export const incrementBuild = async (req: Request, res: Response,next: NextFunction) : Promise<void> => {
     try {
       const userId = req.user?._id; // Get the user's ID from the authenticated request
       const { projectId } = req.params;
@@ -142,18 +245,15 @@ export const incrementBuild = async (req: Request, res: Response) => {
       );
   
       if (!updatedProject) {
-        return res.status(404).json({ error: "Project not found or not authorized to update" });
+         return next(new Error("Project not found or not authorized to update"));
+
       }
   
-      return res.status(200).json(updatedProject);
+       res.status(200).json(updatedProject);
     }
 
     catch (error) {
-        if (error instanceof Error) {
-          return res.status(500).json({ error: error.message });
-        }
-        return res.status(500).json({ error: "An unexpected error occurred" });
+        next(error)
       }
-      
   };
   

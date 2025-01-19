@@ -8,6 +8,8 @@ import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/errorMiddleware";
 import userRouter from "./routes/userRouter";
 import { authenticate, isRole } from "./middleware/authMiddleware";
+import projectRouter from "./routes/projectRouter";
+import TestcaseRouter from "./routes/testcaseRouter";
 
 
 dotenv.config();
@@ -50,9 +52,12 @@ app.use(
 
 
 app.use(authRouter);
-app.use("/users", authenticate,isRole("Admin"), userRouter);
+app.use("/users", authenticate, userRouter);
+app.use("/projects", authenticate,projectRouter)
 
 app.use(errorHandler)
+
+app.use("/:projectId/test-cases",authenticate,TestcaseRouter)
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

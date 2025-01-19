@@ -1,45 +1,47 @@
+// src/components/Header.js
 "use client";
-import { useState, useEffect } from "react";
+
+import React, { useState, useEffect } from "react";
+import Cookies from "js-cookie";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import Cookies from "js-cookie"; // Import js-cookie for managing cookies
-import { usePathname } from "next/navigation"; // Import usePathname hook
-const Navbar: React.FC = () => {
+import { usePathname, useRouter } from "next/navigation";
+
+const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
   const pathname = usePathname(); // Use usePathname hook to get current path
-
+  
+  // Toggle the mobile menu
   const toggleMenu = () => setIsOpen(!isOpen);
 
   // Check login state when the component mounts
   useEffect(() => {
     const token = Cookies.get("jwt"); // Check if the token exists in cookies
     if (token) {
-      alert("logged in");
-      setIsLoggedIn(true); 
+      setIsLoggedIn(true);
     }
   }, [pathname]);
 
   const handleLogout = () => {
     Cookies.remove("jwt"); // Remove the token from cookies
     setIsLoggedIn(false); // Update the login state
-    router.push("/auth/sign-in"); // Redirect to the SignIn page
+    router.push("/auth/sign-in"); // Redirect to the sign-in page
   };
 
   return (
-    <nav className="bg-blue-600 text-white" suppressHydrationWarning>
+    <nav className="bg-white shadow-md">
       <div className="container mx-auto flex items-center justify-between p-4">
         {/* Logo Section */}
-        <div className="text-lg font-bold">
-          <Link href="/">MyApp</Link>
+        <div className="text-2xl font-bold text-green-500">
+          <Link href="/">Testit</Link>
         </div>
 
         {/* Hamburger Menu (Mobile) */}
         <div className="lg:hidden">
           <button
             onClick={toggleMenu}
-            className="text-white focus:outline-none hover:text-gray-200"
+            className="text-gray-700 focus:outline-none hover:text-green-500"
           >
             <svg
               className="w-6 h-6"
@@ -64,49 +66,52 @@ const Navbar: React.FC = () => {
             isOpen ? "block" : "hidden"
           } lg:flex lg:items-center lg:gap-6`}
         >
-          {[
-            { path: "/", label: "Home" },
-            { path: "/about", label: "About" },
-            { path: "/projects", label: "Projects" },
-            { path: "/contact", label: "Contact" },
-          ].map((link) => (
-            <Link key={link.path} href={link.path}>
-              <span
-                className={`block px-3 py-2 rounded hover:bg-blue-700 lg:inline-block ${
-                  pathname === link.path ? "bg-blue-800" : ""
-                }`}
-              >
-                {link.label}
-              </span>
-            </Link>
-          ))}
+          <Link
+            href="/"
+            className="block px-3 py-2 text-gray-700 hover:text-green-500"
+          >
+            Home
+          </Link>
+          <Link
+            href="/about"
+            className="block px-3 py-2 text-gray-700 hover:text-green-500"
+          >
+            About
+          </Link>
+          <Link
+            href= {isLoggedIn ? "/project" : "/auth/sign-in" }
+            className="block px-3 py-2 text-gray-700 hover:text-green-500"
+          >
+            Projects
+          </Link>
+          <Link
+            href="/contact"
+            className="block px-3 py-2 text-gray-700 hover:text-green-500"
+          >
+            Contact
+          </Link>
 
-          {/* Conditional rendering of Sign In/Sign Up or User Avatar */}
+          {/* Conditional rendering for login/logout buttons */}
           {!isLoggedIn ? (
             <div className="flex gap-4">
-              <Link href="/auth/sign-in">
-                <button className="px-4 py-2 rounded bg-blue-700 hover:bg-blue-800">
-                  Sign In
-                </button>
+              <Link
+                href="/auth/sign-in"
+                className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600"
+              >
+                Sign In
               </Link>
-              <Link href="/auth/sign-up">
-                <button className="px-4 py-2 rounded bg-blue-700 hover:bg-blue-800">
-                  Sign Up
-                </button>
+              <Link
+                href="/auth/sign-up"
+                className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600"
+              >
+                Sign Up
               </Link>
             </div>
           ) : (
             <div className="flex items-center gap-4">
-              {/* <Image
-                src="https://www.placecage.com/50/50" // Placeholder user avatar image
-                alt="User Avatar"
-                className="w-8 h-8 rounded-full"
-                width={20}
-                height={20}
-              /> */}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-white bg-red-600 rounded"
+                className="px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600"
               >
                 Log Out
               </button>
@@ -118,4 +123,4 @@ const Navbar: React.FC = () => {
   );
 };
 
-export default Navbar;
+export default Header;
