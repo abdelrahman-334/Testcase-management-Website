@@ -1,5 +1,5 @@
 import express from 'express';
-import { addHistoricalData, getHistoricalData, updateHistoricalData, deleteHistoricalData } from '../controllers/historyController';
+import { addHistoricalData, getHistoricalData, updateHistoricalData, deleteHistoricalData, addBatchHistoricalData } from '../controllers/historyController';
 
 const historyRouter = express.Router({ mergeParams: true });
 
@@ -9,5 +9,5 @@ historyRouter.get("/", getHistoricalData); // Get all historical data for the te
 historyRouter.get("/:historyId", getHistoricalData); // Get historical data by ID
 historyRouter.put("/:historyId", updateHistoricalData); // Update historical data by ID
 historyRouter.delete("/:historyId", deleteHistoricalData); // Delete historical data by ID
-
+historyRouter.post("/add-batch",addBatchHistoricalData)
 export default historyRouter;

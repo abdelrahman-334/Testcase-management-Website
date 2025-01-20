@@ -1,15 +1,11 @@
 "use client"
 import TestCasesPage from "@/components/test-case/testcases";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 const TCPage =   () => {
-  const search = useParams();
-  let  id = ""
-  if(search.id){
-      id = search.id?.toString();
-  }
-  const searchParams = useSearchParams();
-  const name = searchParams.get("name");
+  const search = useSearchParams();
+  const name = search.get("name");
+  const id = search.get("id");
   return (
     <>
     <div className=" p-5 ml-20">
