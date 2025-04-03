@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Progress } from "../ui/progress";
+import TestCaseModal from "./modals/testcase-modal";
+import HistoryModal from "./modals/history-modal";
+import TestscriptModal from "./modals/testscript-modal";
 
 interface Step {
   step_description: string;
@@ -45,9 +49,19 @@ interface TestCasesPageProps {
 }
 
 const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
+ 
+  /* test scripts states*/
+  const [scriptName,setScriptName] = useState("");
+  const [scriptType,setScriptType] = useState("");
+  const [scriptFile,setscriptFile] = useState<File | null>(null);
+  const [isTestscriptUploadModalOpen,setIsTestscriptUploadModalOpen] = useState(false);
+  const [currentTestcaseId,setCurrentTestcaseId] = useState<string |null>(null);
+  /*test case states*/
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // State to control modal visibility
   const [isEditMode, setIsEditMode] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [config, setConfig] = useState({
@@ -65,6 +79,9 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
     preconditions: "",
     steps: [],
   });
+
+  /*History states*/
+  const [historyFile, setHistoryFile] = useState<File | null>(null); // State to store the selected file
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [newHistoricalData, setNewHistoricalData] = useState<HistoricalData>({
     testcase: "", // ObjectId from the test case
@@ -80,9 +97,20 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
     Cycle: 0,
     LastResults: [],
   });
+
   const [projectUsers, setProjectUsers] = useState<User[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prioritizationOrder,setPrioritizationOrder] = useState<string[]>([]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setHistoryFile(e.target.files[0]); // Set the selected file to state
+    }
+  };
+  const handleTestscriptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setscriptFile(e.target.files[0]); // Set the selected file to state
+    }
+  };
   useEffect(() => {
     const fetchTestCases = async () => {
       try {
@@ -111,6 +139,9 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
     fetchTestCases();
     fetchProjectUsers();
   }, [projectId]);
+
+
+
   const handleSaveHistoricalData = async (testcase: TestCase) => {
     try {
       console.log(newHistoricalData
@@ -218,6 +249,8 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
   }
 
   const handleConfigSave = async () => {
+    setIsLoading(true);
+    setProgress(0);
     try {
       const requestPayload = {
         project: projectId,
@@ -251,27 +284,42 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
           },
         },
       };
-  
-      const response = await fetch(`http://localhost:8000//configure`, {
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const progressInterval = setInterval(() => {
+        setProgress((prevProgress) => {
+          if (prevProgress < 100) {
+            return prevProgress + 10; // Increment progress by 10%
+          }
+          return prevProgress;
+        });
+      }, 500);
+      const response = await fetch(`http://localhost:8000/configure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(requestPayload),
       });
   
       if (response.ok) {
         const { prioritizationOrder } = await response.json();
+        console.log(prioritizationOrder)
         setTestCases((prev) =>
-          [...prev].sort((a, b) =>
+          [...prev].sort((a, b) => 
+            
             prioritizationOrder.indexOf(a.id) - prioritizationOrder.indexOf(b.id)
           )
         );
+        console.log(testCases)
         setIsConfigModalOpen(false);
       } else {
         console.error("Failed to configure model");
       }
     } catch (error) {
       console.error("Error configuring model:", error);
+    }
+    finally{
+    setProgress(100);
+    setIsLoading(false);
     }
   };
   const handleNextBuild =  async () => {
@@ -289,7 +337,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
       console.error("Error incrementing build:", error);
     }
   }
-
+ 
   const openEditTestCase = (testCase: TestCase) => {
     setNewTestCase(testCase);
     setIsEditMode(true);
@@ -330,26 +378,112 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
       return { ...prev, steps };
     });
   };
-
+  const handleFileUpload = async () => {
+    if (!historyFile) {
+      alert("Please select a file to upload.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("file", historyFile);
   
+    try {
+      const response = await fetch(
+        `http://localhost:4000/projects/${projectId}/test-cases/add-batch`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        }
+      );
+  
+      if (response.ok) {
+         await response.json();
+        alert("Batch historical data uploaded");
+        setIsUploadModalOpen(false);
+        // Optionally, update your UI or test cases after upload
+      } else {
+        console.error("Failed to upload batch historical data.");
+      }
+    } catch (error) {
+      console.error("Error during file upload:", error);
+    }
+  };
+  const handleTestscriptUploadOpenModal =  (testcaseId: string) => {
+    setCurrentTestcaseId(testcaseId);
+    setIsTestscriptUploadModalOpen(true);
+  };
+  const handleTestscriptUploadCloseModal =  () => {
+    setIsTestscriptUploadModalOpen(false);
+  };
+  const handleTestscriptUpload = async () => {
+      if(!scriptFile ){
+        alert("no testscript provided");
+        return;
+      }
+      if(!currentTestcaseId){
+        alert("chosen test case doesn't exist");
+        return;
+      }
+
+      const formdata = new FormData();
+      formdata.append("scriptContent",scriptFile);
+      formdata.append("scriptName",scriptName);
+      formdata.append("scriptType",scriptType);
+      formdata.append("testcaseId",currentTestcaseId.toString());
+      console.log(formdata);
+      try {
+        const response = await fetch("http://localhost:4000/api/testscripts/upload",
+          {
+          method: "POST",
+          body: formdata,
+          credentials: "include",
+        });
+        if(response.ok){
+          await response.json();
+        }
+        else{
+          console.error("failed to upload data");
+        }
+      }
+      catch(error){
+        console.error("An error happened during file upload",error)
+
+      }
+  };
+  const handleUploadOpenModal = () => {
+    setIsUploadModalOpen(true); // Open the modal
+  };
+  const handleUploadCloseModal = () => {
+    setIsUploadModalOpen(false); // Close the modal
+  };
 
   return (
     <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-6">
+     
+
+      <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">Test Cases</h1>
-        <div>
+        <div className="flex gap-2 flex-none">
+                <button
+          onClick={handleUploadOpenModal}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Upload Data
+        </button>
+
         <button
             onClick={() => setIsConfigModalOpen(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mx-3"
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 "
           >
             Configure Model
           </button>
+
         <button
           onClick={() => {
             setIsModalOpen(true);
             resetNewTestCase();
           }}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mx-3"
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 "
         >
           + Add Test Case
         </button>
@@ -357,7 +491,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
           onClick={() => {
             handleNextCycle()
           }}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mx-3"
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 "
         >
           Next Cycle
         </button>
@@ -366,14 +500,14 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
           onClick={() => {
             handleNextBuild()
           }}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mx-3"
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 "
         >
           Next Build
         </button>
         </div>
       </div>
 
-      <div className="bg-white rounded shadow-md overflow-hidden">
+      <div className="bg-white rounded shadow-md overflow-hidden border-2 w-full">
         {testCases.length > 0 ? (
           <ul>
             {testCases.map((testCase) => (
@@ -383,7 +517,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
                   <p className="text-sm text-gray-500">Priority: {testCase.priority}</p>
                   <p className="text-sm text-gray-500">Status: {testCase.status}</p>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => openEditTestCase(testCase)}
                     className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
@@ -405,10 +539,16 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
                       }
 
                     }
-                    className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 mx-3"
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
                     >
                     Add Historical Data
                     </button>
+                    <button
+                    onClick={() => handleTestscriptUploadOpenModal(testCase._id!)}
+                    className="bg-sky-500 text-white px-3 py-2 rounded hover:bg-sky-600"
+                  >
+                    Upload test script
+                  </button>
                 </div>
               </li>
             ))}
@@ -471,20 +611,34 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
             >
               Cancel
             </button>
+             {/* Render a progress bar if the model is running */}
+            {isLoading ? (
+              <>
+              <Progress value={progress} max={100} className="h-2 mb-4" />
+            <p>Processing...</p>
+            </>
+            ) : (
             <button
               onClick={handleConfigSave}
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
             >
               Save
             </button>
+            )}
           </div>
         </div>
       </div>
     )}
     {/*history modal*/}
-        {isHistoryModalOpen && (
+        { isHistoryModalOpen && (<HistoryModal 
+        newHistoricalData={newHistoricalData}
+        setIsHistoryModalOpen={setIsHistoryModalOpen}
+        setNewHistoricalData={setNewHistoricalData}
+        handleSaveHistoricalData={handleSaveHistoricalData}
+        newTestCase={newTestCase}
+        />)} {/*
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div className="bg-white rounded shadow-lg w-96 p-6">
+        <div className="bg-white rounded shadow-lg w-1/2 p-6">
           <h2 className="text-xl font-bold mb-4">Add Historical Data</h2>
           <div className="space-y-4">
             <input
@@ -577,16 +731,82 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
           </div>
         </div>
       </div>
-    )}
+    )} */}
+          {/*upload */}
+          {isUploadModalOpen && (
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+          <h2 className="text-lg font-semibold mb-4">Upload Batch Data</h2>
+          
+          {/* File Input */}
+          <input
+            type="file"
+            onChange={handleFileChange}
+            accept=".json, .csv"
+            className="mb-4 p-2 border border-gray-300 rounded"
+          />
 
+          {/* Upload Button */}
+          <button
+            onClick={handleFileUpload}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mr-2"
+          >
+            Upload Data
+          </button>
+          
+          {/* Close Modal Button */}
+          <button
+            onClick={handleUploadCloseModal}
+            className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    )}
       {/* Modal */}
-      {isModalOpen && (
+      { isModalOpen && (<TestCaseModal
+        setIsModalOpen={setIsModalOpen}
+        newTestCase={newTestCase}
+        setNewTestCase={setNewTestCase}
+        projectUsers={projectUsers}
+        isEditMode={isEditMode}
+        handleSaveTestCase={handleSaveTestCase}
+        addStep={addStep}
+        removeStep={removeStep}
+        moveStep={moveStep}
+        updateStepField={updateStepField}
+      />)}
+      {/*TestScript modal*/}
+      {isTestscriptUploadModalOpen && 
+      (
+      <TestscriptModal 
+      scriptName={scriptName} 
+      scriptType={scriptType} 
+      scriptFile={scriptFile}
+      setScriptName={setScriptName}
+      setScriptType={setScriptType}
+      handleTestscriptFileChange={handleTestscriptFileChange}
+      handleTestscriptUploadCloseModal={handleTestscriptUploadCloseModal}
+      handleTestscriptUpload={handleTestscriptUpload}
+      />)}
+      {/*
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded shadow-lg w-96 p-6">
             <h2 className="text-xl font-bold mb-4">
               {isEditMode ? "Edit Test Case" : "Add Test Case"}
             </h2>
             <div className="space-y-4">
+
+
+
+            <input
+                type="number"
+                placeholder="0"
+                value={newTestCase.id}
+                onChange={(e) => setNewTestCase({ ...newTestCase, id: Number.parseInt(e.target.value) })}
+                className="w-full px-4 py-2 border rounded"
+              />
               <input
                 type="text"
                 placeholder="Name"
@@ -630,7 +850,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
                 className="w-full px-4 py-2 border rounded"
               ></textarea>
 
-              {/* Steps */}
+              {}
               <div>
                 <h3 className="text-lg font-bold mb-2">Steps</h3>
                 <div className="max-h-64 overflow-y-auto border rounded p-2 bg-gray-50">
@@ -702,7 +922,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

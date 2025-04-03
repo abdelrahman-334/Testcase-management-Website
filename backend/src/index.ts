@@ -10,6 +10,7 @@ import userRouter from "./routes/userRouter";
 import { authenticate, isRole } from "./middleware/authMiddleware";
 import projectRouter from "./routes/projectRouter";
 import TestcaseRouter from "./routes/testcaseRouter";
+import testscriptRouter from "./routes/testscriptRouter";
 
 
 dotenv.config();
@@ -54,7 +55,7 @@ app.use(
 app.use(authRouter);
 app.use("/users", authenticate, userRouter);
 app.use("/projects", authenticate,projectRouter)
-
+app.use("/api/testscripts",authenticate,testscriptRouter)
 app.use(errorHandler)
 
 app.use("/:projectId/test-cases",authenticate,TestcaseRouter)

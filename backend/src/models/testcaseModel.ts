@@ -24,6 +24,7 @@ export interface ITestCase extends Document {
   }];
   cycle : number;
   build : number;
+  scripts: Types.ObjectId[]; // Reference to TestScript
 }
 
 // Define the User schema
@@ -41,7 +42,8 @@ const TestcaseSchema: Schema = new mongoose.Schema<ITestCase>({
         expected_result: String,
       }]},
     cycle: {default: 0,type: Number},
-    build: {default: 0,type: Number}
+    build: {default: 0,type: Number},
+    scripts: [{ type: mongoose.Schema.Types.ObjectId, ref: "TestScript" }] // Add scripts array
 }, { timestamps: true });
 
 const Testcase = mongoose.model<ITestCase>("Testcase", TestcaseSchema);

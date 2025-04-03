@@ -111,7 +111,8 @@ export const updateProjectName = async (req: Request, res: Response,next: NextFu
       const userId = req.user?._id; // Get the user's ID from the authenticated request
       const { projectId } = req.params;
       const { name } = req.body;
-  
+      const username = (await User.findById(userId))?.username
+
       const updatedProject = await Project.findOneAndUpdate(
         { _id: projectId, leader: userId }, // Ensure the user owns the project
         { name },
@@ -122,7 +123,7 @@ export const updateProjectName = async (req: Request, res: Response,next: NextFu
          return next(new Error(`Project not found or not authorized to update` ));
       }
   
-       res.status(200).json(updatedProject);
+       res.status(200).json({updatedProject:updatedProject,name:username });
     }
     catch (error) {
         next(error)
