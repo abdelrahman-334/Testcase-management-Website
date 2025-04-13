@@ -1,7 +1,7 @@
 import express from "express";
 import { getUser } from "../controllers/userController";
 import { addProject, addUserToProject, deleteProject, getProjectById, getUserProjects, getUsersForProject, incrementBuild, incrementCycle, removeUserFromProject, updateProjectName } from "../controllers/projectController";
-import { authenticate } from "../middleware/authMiddleware";
+import { authenticate, isRole } from "../middleware/authMiddleware";
 import TestcaseRouter from "./testcaseRouter";
 
 const projectRouter = express.Router();

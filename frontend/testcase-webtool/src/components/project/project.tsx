@@ -13,6 +13,7 @@ interface User {
 interface Project {
   _id: string;
   name: string;
+  github_repo:string;
   leader:  {
     id:string,
     username:string
@@ -29,6 +30,7 @@ const ProjectsPage = () => {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState<Project>({
     _id: "",
+    github_repo:"",
     name: "",
     leader: {
       id:"",
@@ -149,15 +151,15 @@ const ProjectsPage = () => {
         if (isEditMode) {
           setProjects(
             projects.map((project) =>
-              project._id === updatedProject._id ? {_id: updatedProject._id, name: updatedProject.name, leader: { id:updatedProject._id, username:project.leader.username}} : project
+              project._id === updatedProject._id ? {_id: updatedProject._id, name: updatedProject.name, github_repo:updatedProject.github_repo, leader: { id:updatedProject._id, username:project.leader.username}} : project
             )
           );
         } else {
-          setProjects([...projects,  {_id: updatedProject._id, name: updatedProject.name, leader: { id:updatedProject._id, username:res.name}}]);
+          setProjects([...projects,  {_id: updatedProject._id, name: updatedProject.name,github_repo:updatedProject.github_repo, leader: { id:updatedProject._id, username:res.name}}]);
         }
 
         setIsModalOpen(false);
-        setNewProject({ _id: "", name: "", leader: {id:"", username:""} });
+        setNewProject({ _id: "", name: "", leader: {id:"", username:""},github_repo:"" });
         setIsEditMode(false);
         setCurrentProject(null);
       } else {
@@ -203,7 +205,7 @@ const ProjectsPage = () => {
           onClick={() => {
             setIsModalOpen(true);
             setIsEditMode(false);
-            setNewProject({ _id: "", name: "", leader: {id:"", username:""} });
+            setNewProject({ _id: "", name: "", leader: {id:"", username:""} ,github_repo:""});
           }}
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 m-4"
         >
@@ -306,7 +308,7 @@ const ProjectsPage = () => {
       {/* Modal for Adding/Editing Project */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white rounded shadow-lg w-96 p-6">
+          <div className="bg-white rounded shadow-lg w-96 p-6 space-y-4">
             <h2 className="text-xl font-bold mb-4">
               {isEditMode ? "Edit Project" : "Add Project"}
             </h2>
@@ -317,6 +319,18 @@ const ProjectsPage = () => {
                 value={newProject.name}
                 onChange={(e) =>
                   setNewProject({ ...newProject, name: e.target.value })
+                }
+                className="w-full px-4 py-2 border rounded"
+              />
+              
+            </div>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Github repo link"
+                value={newProject.github_repo}
+                onChange={(e) =>
+                  setNewProject({ ...newProject, github_repo: e.target.value })
                 }
                 className="w-full px-4 py-2 border rounded"
               />

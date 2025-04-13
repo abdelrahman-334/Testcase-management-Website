@@ -8,9 +8,10 @@ export const addProject = async (req: Request, res: Response,next: NextFunction)
       
       const userId = req.user?._id; // Get the user's ID from the authenticated request
       const username = (await User.findById(userId))?.username
-      const { name, cycle = 0, build = 0 } = req.body;
+
+      const { name, github_repo, cycle = 0, build = 0 } = req.body;
   
-      const newProject = await Project.create({ name, leader: userId, cycle, build });
+      const newProject = await Project.create({ name, leader: userId, cycle, build, github_repo });
   
       // Add the project to the user's projects array
         await User.findByIdAndUpdate(userId, { $push: { projects: newProject._id } });
@@ -110,12 +111,12 @@ export const updateProjectName = async (req: Request, res: Response,next: NextFu
     try {
       const userId = req.user?._id; // Get the user's ID from the authenticated request
       const { projectId } = req.params;
-      const { name } = req.body;
+      const { name,github_repo } = req.body;
       const username = (await User.findById(userId))?.username
 
       const updatedProject = await Project.findOneAndUpdate(
         { _id: projectId, leader: userId }, // Ensure the user owns the project
-        { name },
+        { name, github_repo },
         { new: true }
       );
   
