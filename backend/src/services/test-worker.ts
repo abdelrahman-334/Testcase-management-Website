@@ -18,8 +18,8 @@ const [,, repoUrl, projectId] = process.argv;
 
 import('./TestExecutionService').then(async ({ TestExecutionService }) => {
   try {
-    await TestExecutionService.execute(repoUrl, projectId);
-    process.send?.({ success: true });
+    const results = await TestExecutionService.execute(repoUrl, projectId);
+    process.send?.({ success: true, results });
     process.exit(0);
   } catch (err) {
     process.send?.({ success: false, error: (err as Error).message });

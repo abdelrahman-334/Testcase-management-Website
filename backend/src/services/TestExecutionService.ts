@@ -9,7 +9,7 @@ import injectReporter from '../utils/codeInject';
 import Testcase from '../models/testcaseModel';
 import mongoose from 'mongoose';
 const WORKDIR = path.join(__dirname, '../../../temp');
-
+import dayjs from 'dayjs';
 export class TestExecutionService {
   static async execute(repoUrl: string, projectId: string) {
     const repoPath = path.join(WORKDIR, uuidv4());
@@ -21,7 +21,7 @@ export class TestExecutionService {
     const parsedResults = await this.parseResults(repoPath);
     await this.saveHistoricalData(parsedResults, projectId);
 
-    return parsedResults.length;
+    return parsedResults;
   }
 
   static async downloadRepo(repoUrl: string, dest: string) {
@@ -84,7 +84,19 @@ export class TestExecutionService {
           console.warn(`No matching test case found for ID ${numericId}`);
           continue;
         }
-  
+
+
+        const latestHistory = await HistoricalData.findOne({
+          Id: testcase.id,
+          project: projectId
+        }).sort({ createdAt: -1 });
+        console.log("latestHistory", latestHistory);
+        const previousResults = latestHistory
+        ? [...(latestHistory.LastResults || []), String(latestHistory.Verdict)]
+        : [];
+        const currentResult = t.status === 'passed' ? '1' : '0';
+        console.log("currentResult", previousResults);
+        const updatedResults = [...previousResults, currentResult];
         toInsert.push({
           project: projectId,
           Id: testcase.id,
@@ -92,11 +104,11 @@ export class TestExecutionService {
           BuildId: build || 0,
           Duration: t.duration || 0,
           CalcPrio: 0,
-          LastRun: new Date().toISOString(),
+          LastRun: dayjs(new Date()).format('DD/MM/YYYY HH:mm'),
           NumRan: 1,
-          Verdict: t.status === 'passed' ? 1 : 0,
+          Verdict: currentResult === '1' ? 1 : 0,
           Cycle: cycle || 0,
-          LastResults: [t.status === 'passed' ? '1' : '0']
+          LastResults: previousResults,
         });
       }
     }

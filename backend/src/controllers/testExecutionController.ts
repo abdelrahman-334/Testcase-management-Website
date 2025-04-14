@@ -24,10 +24,29 @@ export const executeTests = async (req: Request, res: Response, next: NextFuncti
     }   
     const child = fork(workerPath, [project.github_repo, projectId]);
 
-    child.on('message', (msg: { success: boolean; result?: any; error?: string }) => {
-      if (msg.success) {
-        res.status(200).json({ message: '✅ Test execution completed.', result: msg.result });
-      } else {
+    child.on('message', (msg: { success: boolean; results?: any; error?: string }) => {
+         console.log('Message from child process:', msg.results[0].testResults);
+         if (msg.success && Array.isArray(msg.results)) {
+          const report = msg.results.flatMap((r: any) =>
+            r.testResults.map((t: any) => {
+              // Extract numeric ID from the title like "[4] reverse"
+              const match = t.title.match(/\[(\d+)\]/);
+              const id = match ? parseInt(match[1], 10) : null;
+        
+              return {
+                title: t.title,
+                id,
+                status: t.status,
+                duration: t.duration || 0,
+              };
+            })
+          );
+        
+          return res.status(200).json({
+            message: '✅ Test execution completed.',
+            report,
+          });
+        } else {
         res.status(500).json({ message: '❌ Test execution failed.', error: msg.error });
       }
     });

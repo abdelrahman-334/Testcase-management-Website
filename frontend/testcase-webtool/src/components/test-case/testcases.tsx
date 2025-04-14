@@ -7,6 +7,18 @@ import HistoryModal from "./modals/history-modal";
 import TestscriptModal from "./modals/testscript-modal";
 import TestSuiteModal from "./modals/testsuite-modal";
 import AddTestcaseToSuiteModal from "./modals/addTestcaseToSuite-modal";
+import { TestReport } from "../displayReport";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+
 
 interface Step {
   step_description: string;
@@ -64,9 +76,19 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
   /* test scripts states*/
   const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
   const [openSuites, setOpenSuites] = useState<{ [suiteId: string]: boolean }>({});
+  
   const [isSuiteModalOpen, setIsSuiteModalOpen] = useState(false);
   const [scriptName,setScriptName] = useState("");
-  const [scriptType,setScriptType] = useState("");
+  interface ExecutionSummary {
+    passed: number;
+    failed: number;
+  }
+  const [executionSummary, setExecutionSummary] = useState<ExecutionSummary | null>(null);
+  const [report, setReport] = useState([]);  const [scriptType,setScriptType] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+
+
   const [scriptFile,setscriptFile] = useState<File | null>(null);
   const [isTestscriptUploadModalOpen,setIsTestscriptUploadModalOpen] = useState(false);
   const [currentTestcaseId,setCurrentTestcaseId] = useState<string |null>(null);
@@ -201,7 +223,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
     fetchTestSuites();
     fetchTestCases();
     fetchProjectUsers();
-  }, [testCases]);
+  }, [testCases,testSuites]);
 
 
   const toggleSuite = (suiteId: string) => {
@@ -311,13 +333,10 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
     try {
       setIsLoading(true);
       setProgress(0);
+      setExecutionSummary(null);
+      setDialogOpen(false);
       const progressInterval = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress < 100) {
-            return prevProgress + 10; // Increment progress by 10%
-          }
-          return prevProgress;
-        });
+        setProgress((prevProgress) => prevProgress < 90 ? prevProgress + 10 : prevProgress);
       }, 500);
       const response = await fetch("http://localhost:4000/api/testExecution/execute-tests", {
         method: "POST",
@@ -327,9 +346,15 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
         },
         body: JSON.stringify({projectId:projectId}),
       });
-    
+      clearInterval(progressInterval);
       if (response.ok) {
-        console.log("Execution started successfully");
+        const data = await response.json();
+        const passed = data.report.filter((t: any) => t.status === 'passed').length;
+        const failed = data.report.length - passed;
+        setExecutionSummary({ passed, failed });
+        setDialogOpen(true);
+      setReport(data.report);
+        console.log("Execution summary:", data.summary);
       } else {
         console.error("Failed to start execution");
       }
@@ -338,7 +363,10 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
     }
   finally{
     setProgress(100);
-    setIsLoading(false);
+    setTimeout(() => {
+      setIsLoading(false);
+      setProgress(0);
+    }, 800);
   }
 }
   const handleAddTestcaseToSuite = async (_id: string,testcase:string) => {
@@ -349,9 +377,9 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({testCaseId:testcase}),
       });
-
+      
       if (response.ok) {
-        
+        handleAddTestcaseToSuiteCloseModal();
       } else {
         console.error("Failed to add test case to suite");
       }
@@ -362,7 +390,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
 
   const handleNextCycle = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/projects/${projectId}/increment-cycle}`, {
+      const response = await fetch(`http://localhost:4000/projects/${projectId}/increment-cycle`, {
         method: "PUT",
         credentials: "include",
       });
@@ -452,7 +480,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
   };
   const handleNextBuild =  async () => {
     try {
-      const response = await fetch(`http://localhost:4000/projects/${projectId}/increment-build}`, {
+      const response = await fetch(`http://localhost:4000/projects/${projectId}/increment-build`, {
         method: "PUT",
         credentials: "include",
       });
@@ -753,7 +781,32 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
     </div>
   </div>
 )}
+  
+<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>🧪 Test Run Report</DialogTitle>
+    </DialogHeader>
 
+    {executionSummary && (
+      <div className="mt-4 text-center text-lg font-semibold">
+        ✅ Passed: {executionSummary.passed} &nbsp;&nbsp;&nbsp; ❌ Failed: {executionSummary.failed}
+      </div>
+    )}
+
+    {report.length > 0 && (
+      <div className="mt-6">
+        <TestReport report={report} />
+      </div>
+    )}
+
+    <DialogFooter className="mt-6">
+      <DialogClose asChild>
+        <Button variant="outline">Close</Button>
+      </DialogClose>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
         {/* Config Modal */}
             {isConfigModalOpen && (
@@ -834,102 +887,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
         setNewHistoricalData={setNewHistoricalData}
         handleSaveHistoricalData={handleSaveHistoricalData}
         newTestCase={newTestCase}
-        />)} {/*
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div className="bg-white rounded shadow-lg w-1/2 p-6">
-          <h2 className="text-xl font-bold mb-4">Add Historical Data</h2>
-          <div className="space-y-4">
-            <input
-              type="number"
-              placeholder="Test Case ID"
-              value={newHistoricalData.Id}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, Id: Number(e.target.value) })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="text"
-              placeholder="Name"
-              value={newHistoricalData.Name}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, Name: e.target.value })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="number"
-              placeholder="Build ID"
-              value={newHistoricalData.BuildId}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, BuildId: Number(e.target.value) })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="number"
-              placeholder="Duration"
-              value={newHistoricalData.Duration}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, Duration: Number(e.target.value) })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="number"
-              placeholder="CalcPrio"
-              value={newHistoricalData.CalcPrio}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, CalcPrio: Number(e.target.value) })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="text"
-              placeholder="Last Run Date"
-              value={newHistoricalData.LastRun}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, LastRun: e.target.value })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="number"
-              placeholder="NumRan"
-              value={newHistoricalData.NumRan}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, NumRan: Number(e.target.value) })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="number"
-              placeholder="Verdict"
-              value={newHistoricalData.Verdict}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, Verdict: Number(e.target.value) })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <input
-              type="number"
-              placeholder="Cycle"
-              value={newHistoricalData.Cycle}
-              onChange={(e) => setNewHistoricalData({ ...newHistoricalData, Cycle: Number(e.target.value) })}
-              className="w-full px-4 py-2 border rounded"
-            />
-            <textarea
-              placeholder="Last Results (comma-separated)"
-              value={newHistoricalData.LastResults.join(", ")}
-              onChange={(e) =>
-                setNewHistoricalData({ ...newHistoricalData, LastResults: e.target.value.split(", ") })
-              }
-              className="w-full px-4 py-2 border rounded"
-            ></textarea>
-          </div>
-          <div className="flex justify-end mt-4">
-            <button
-              onClick={() => setIsHistoryModalOpen(false)}
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 mr-2"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                handleSaveHistoricalData(newTestCase)
-              }}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </div>
-    )} */}
+        />)} 
           {/*upload */}
           {isUploadModalOpen && (
       <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
@@ -1011,139 +969,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
       onSave={handleSaveTestSuite}
       />
       )}
-      {/*
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white rounded shadow-lg w-96 p-6">
-            <h2 className="text-xl font-bold mb-4">
-              {isEditMode ? "Edit Test Case" : "Add Test Case"}
-            </h2>
-            <div className="space-y-4">
-
-
-
-            <input
-                type="number"
-                placeholder="0"
-                value={newTestCase.id}
-                onChange={(e) => setNewTestCase({ ...newTestCase, id: Number.parseInt(e.target.value) })}
-                className="w-full px-4 py-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Name"
-                value={newTestCase.name}
-                onChange={(e) => setNewTestCase({ ...newTestCase, name: e.target.value })}
-                className="w-full px-4 py-2 border rounded"
-              />
-              <input
-                type="number"
-                placeholder="Priority"
-                value={newTestCase.priority}
-                onChange={(e) => setNewTestCase({ ...newTestCase, priority: Number(e.target.value) })}
-                className="w-full px-4 py-2 border rounded"
-              />
-              <textarea
-                placeholder="Description"
-                value={newTestCase.description}
-                onChange={(e) =>
-                  setNewTestCase({ ...newTestCase, description: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded"
-              ></textarea>
-              <select
-                value={newTestCase.assignedTo}
-                onChange={(e) => setNewTestCase({ ...newTestCase, assignedTo: e.target.value })}
-                className="w-full px-4 py-2 border rounded"
-                >
-                <option value="">Assign To</option>
-                {projectUsers.map((user) => (
-                  <option key={user._id} value={user._id}>                    
-                    {user.email}
-                  </option>
-                ))}
-              </select>
-              <textarea
-                placeholder="Preconditions"
-                value={newTestCase.preconditions}
-                onChange={(e) =>
-                  setNewTestCase({ ...newTestCase, preconditions: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded"
-              ></textarea>
-
-              {}
-              <div>
-                <h3 className="text-lg font-bold mb-2">Steps</h3>
-                <div className="max-h-64 overflow-y-auto border rounded p-2 bg-gray-50">
-                  {newTestCase.steps.map((step, index) => (
-                    <div key={index} className="mb-4">
-                      <input
-                        type="text"
-                        placeholder="Step Description"
-                        value={step.step_description}
-                        onChange={(e) =>
-                          updateStepField(index, "step_description", e.target.value)
-                        }
-                        className="w-full px-4 py-2 border rounded mb-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Expected Result"
-                        value={step.expected_result}
-                        onChange={(e) =>
-                          updateStepField(index, "expected_result", e.target.value)
-                        }
-                        className="w-full px-4 py-2 border rounded mb-2"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => moveStep(index, "up")}
-                          className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                        >
-                          Up
-                        </button>
-                        <button
-                          onClick={() => moveStep(index, "down")}
-                          className="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                        >
-                          Down
-                        </button>
-                        <button
-                          onClick={() => removeStep(index)}
-                          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={addStep}
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mt-4"
-                >
-                  + Add Step
-                </button>
-              </div>
-
-            </div>
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 mr-2"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveTestCase}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )} */}
+      
     </div>
   );
 };
