@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.ts",
+    "start": "node dist/src/index.js",
     "dev": "nodemon src/index.ts",
-    "build": "tsc"
+    "build": "tsc && node copy-files.js"
   },
   "author": "",
   "license": "ISC",

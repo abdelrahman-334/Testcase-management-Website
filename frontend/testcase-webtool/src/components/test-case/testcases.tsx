@@ -5,6 +5,8 @@ import { Progress } from "../ui/progress";
 import TestCaseModal from "./modals/testcase-modal";
 import HistoryModal from "./modals/history-modal";
 import TestscriptModal from "./modals/testscript-modal";
+import TestSuiteModal from "./modals/testsuite-modal";
+import AddTestcaseToSuiteModal from "./modals/addTestcaseToSuite-modal";
 
 interface Step {
   step_description: string;
@@ -36,6 +38,7 @@ interface TestCase {
   status: string;
   preconditions: string;
   steps: Step[];
+  testSuite?: string; // Optional field for test suite association
 }
 
 interface User {
@@ -47,10 +50,21 @@ interface User {
 interface TestCasesPageProps {
   projectId: string;
 }
+interface TestSuite {
+  _id?: string;
+  id: number;
+  name: string;
+  description: string;
+  project: string;
+}
+
 
 const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
  
   /* test scripts states*/
+  const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
+  const [openSuites, setOpenSuites] = useState<{ [suiteId: string]: boolean }>({});
+  const [isSuiteModalOpen, setIsSuiteModalOpen] = useState(false);
   const [scriptName,setScriptName] = useState("");
   const [scriptType,setScriptType] = useState("");
   const [scriptFile,setscriptFile] = useState<File | null>(null);
@@ -59,6 +73,7 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
   /*test case states*/
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddToSuiteModalOpen,setIsAddToSuiteModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // State to control modal visibility
@@ -101,6 +116,33 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
   const [projectUsers, setProjectUsers] = useState<User[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [prioritizationOrder,setPrioritizationOrder] = useState<string[]>([]);
+
+  const [currentTestcase,setCurrentTestcase] = useState<string>("");
+  const [currentTestsuite,setCurrentTestsuite] = useState<string>("");
+
+
+  const handleSaveTestSuite = async (data: { name: string; description: string }) => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/projects/${projectId}/suites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...data, id: Date.now(), status: "active" }),
+      });
+  
+      if (response.ok) {
+        const newSuite = await response.json();
+        setTestSuites((prev) => [...prev, newSuite]);
+        setIsSuiteModalOpen(false);
+      } else {
+        console.error("Failed to create test suite");
+      }
+    } catch (err) {
+      console.error("Error saving test suite", err);
+    }
+  };
+  
+    
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setHistoryFile(e.target.files[0]); // Set the selected file to state
@@ -135,13 +177,39 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
         console.error("Failed to fetch project users:", error);
       }
     };
-
+    const fetchTestSuites = async () => {
+      try {
+        const response = await fetch(`http://localhost:4000/api/projects/${projectId}/suites`, {
+          credentials: "include",
+        });
+        const data = await response.json();
+    
+        if (Array.isArray(data)) {
+          setTestSuites(data);
+        } else if (data && Array.isArray(data.testSuites)) {
+          setTestSuites(data.testSuites);
+        } else {
+          console.error("Unexpected format for test suites:", data);
+          setTestSuites([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch test suites:", error);
+        setTestSuites([]);
+      }
+    };
+    
+    fetchTestSuites();
     fetchTestCases();
     fetchProjectUsers();
-  }, [projectId]);
+  }, [testCases]);
 
 
-
+  const toggleSuite = (suiteId: string) => {
+    setOpenSuites((prev) => ({
+      ...prev,
+      [suiteId]: !prev[suiteId],
+    }));
+  };
   const handleSaveHistoricalData = async (testcase: TestCase) => {
     try {
       console.log(newHistoricalData
@@ -231,7 +299,67 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
       console.error("Error deleting test case:", error);
     }
   };
-  
+
+
+  const handleAddTestcaseToSuiteOpenModal = () => {
+    setIsAddToSuiteModalOpen(true);
+  }
+  const handleAddTestcaseToSuiteCloseModal = () => {
+    setIsAddToSuiteModalOpen(false);
+  }
+  const handleRunExecution = async () => {
+    try {
+      setIsLoading(true);
+      setProgress(0);
+      const progressInterval = setInterval(() => {
+        setProgress((prevProgress) => {
+          if (prevProgress < 100) {
+            return prevProgress + 10; // Increment progress by 10%
+          }
+          return prevProgress;
+        });
+      }, 500);
+      const response = await fetch("http://localhost:4000/api/testExecution/execute-tests", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({projectId:projectId}),
+      });
+    
+      if (response.ok) {
+        console.log("Execution started successfully");
+      } else {
+        console.error("Failed to start execution");
+      }
+    } catch (error) {
+      console.error("Error starting execution:", error);
+    }
+  finally{
+    setProgress(100);
+    setIsLoading(false);
+  }
+}
+  const handleAddTestcaseToSuite = async (_id: string,testcase:string) => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/suites/${_id}/testcases`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({testCaseId:testcase}),
+      });
+
+      if (response.ok) {
+        
+      } else {
+        console.error("Failed to add test case to suite");
+      }
+    } catch (error) {
+      console.error("Error add testcase to suite:", error);
+    }
+  };
+
   const handleNextCycle = async () => {
     try {
       const response = await fetch(`http://localhost:4000/projects/${projectId}/increment-cycle}`, {
@@ -488,6 +616,18 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
           + Add Test Case
         </button>
         <button
+          onClick={() => setIsSuiteModalOpen(true)}
+          className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+        >
+          + Add Test Suite
+        </button>
+        <button
+          onClick={handleRunExecution}
+          className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+        >
+          Run execution
+        </button>
+        <button
           onClick={() => {
             handleNextCycle()
           }}
@@ -506,18 +646,41 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
         </button>
         </div>
       </div>
-
+      {/* display test cases*/}
       <div className="bg-white rounded shadow-md overflow-hidden border-2 w-full">
-        {testCases.length > 0 ? (
-          <ul>
-            {testCases.map((testCase) => (
-              <li key={testCase._id} className="p-4 border-b">
+  {[...testSuites, { _id: "unsorted", name: "Unsorted", id: 9999, description: "", project: ""}].map((suite) => {
+    const suiteCases = testCases.filter(tc => (tc.testSuite || "unsorted") === suite._id);
+
+    return (
+      <div key={suite._id} className="border-b p-4">
+        <div className="flex justify-between items-center">
+          <h2
+            className="text-lg font-semibold cursor-pointer"
+            onClick={() => toggleSuite(suite._id!)}
+          >
+            {suite.name}
+          </h2>
+          <button
+            onClick={() => {
+              setCurrentTestsuite(suite._id!);
+              handleAddTestcaseToSuiteOpenModal();
+            }}
+            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm"
+          >
+            + Add Test Case
+          </button>
+        </div>
+
+        {openSuites[suite._id!] && (
+          <ul className="mt-2 space-y-2">
+            {suiteCases.map((testCase) => (
+              <li key={testCase._id} className="p-4 border bg-gray-50 rounded">
                 <div>
                   <p className="font-bold">{testCase.name}</p>
                   <p className="text-sm text-gray-500">Priority: {testCase.priority}</p>
                   <p className="text-sm text-gray-500">Status: {testCase.status}</p>
                 </div>
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 flex-wrap">
                   <button
                     onClick={() => openEditTestCase(testCase)}
                     className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
@@ -531,32 +694,67 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
                     Delete
                   </button>
                   <button
-                    onClick={
-                      
-                      () => {
-                        setNewTestCase(testCase)
-                        setIsHistoryModalOpen(true)
-                      }
-
-                    }
+                    onClick={() => {
+                      setNewTestCase(testCase);
+                      setIsHistoryModalOpen(true);
+                    }}
                     className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                    >
+                  >
                     Add Historical Data
-                    </button>
-                    <button
+                  </button>
+                  <button
                     onClick={() => handleTestscriptUploadOpenModal(testCase._id!)}
                     className="bg-sky-500 text-white px-3 py-2 rounded hover:bg-sky-600"
                   >
-                    Upload test script
+                    Upload Test Script
                   </button>
                 </div>
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="p-4 text-gray-500">No test cases found.</p>
         )}
       </div>
+    );
+  })}
+</div>
+{isLoading && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded shadow-md text-center">
+      <div className="flex justify-center mb-4">
+        <svg
+          className="animate-spin h-6 w-6 text-blue-600"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+          />
+        </svg>
+      </div>
+      <p className="text-lg font-semibold mb-2">Running Test Execution...</p>
+      <div className="w-full bg-gray-200 rounded-full h-2.5">
+        <div
+          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="text-sm text-gray-500 mt-2">{progress}%</p>
+    </div>
+  </div>
+)}
+
+
         {/* Config Modal */}
             {isConfigModalOpen && (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -790,6 +988,29 @@ const TestCasesPage: React.FC<TestCasesPageProps> = ({ projectId }) => {
       handleTestscriptUploadCloseModal={handleTestscriptUploadCloseModal}
       handleTestscriptUpload={handleTestscriptUpload}
       />)}
+      
+      {/*add  testcase to suite modal*/ }
+      {isAddToSuiteModalOpen && 
+      (
+      <AddTestcaseToSuiteModal 
+      Testsuite={currentTestsuite}
+      testcases={testCases}
+      currentTestcase={currentTestcase}
+      setCurrentTestcase={setCurrentTestcase}
+      handleAddTestcaseToSuite={handleAddTestcaseToSuite}
+      handleAddTestcaseToSuiteCloseModal={handleAddTestcaseToSuiteCloseModal}
+      />)}
+      
+
+
+
+      {/* Test Suite Modal */}
+      {isSuiteModalOpen && (
+      <TestSuiteModal
+      onClose={() => setIsSuiteModalOpen(false)}
+      onSave={handleSaveTestSuite}
+      />
+      )}
       {/*
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded shadow-lg w-96 p-6">

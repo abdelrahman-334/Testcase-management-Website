@@ -72,8 +72,8 @@ export const deleteTestSuite = async (req: Request, res: Response, next: NextFun
 };
 export const addTestcaseToSuite = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { testSuiteId, testCaseId } = req.params;
-  
+      const { testSuiteId } = req.params;
+      const { testCaseId } = req.body;
       const testcase = await Testcase.findById(testCaseId);
       if (!testcase) { 
         res.status(404).json({ message: 'Test case not found.' });

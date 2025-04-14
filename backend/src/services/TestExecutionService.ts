@@ -7,6 +7,7 @@ import Project from '../models/projectModel';
 import { v4 as uuidv4 } from 'uuid';
 import injectReporter from '../utils/codeInject';
 import Testcase from '../models/testcaseModel';
+import mongoose from 'mongoose';
 const WORKDIR = path.join(__dirname, '../../../temp');
 
 export class TestExecutionService {
@@ -78,7 +79,7 @@ export class TestExecutionService {
         }
   
         // Find matching test case
-        const testcase = await Testcase.findOne({ id: numericId, project: projectId });
+        const testcase = await Testcase.findOne({ id:numericId, project:projectId });
         if (!testcase) {
           console.warn(`No matching test case found for ID ${numericId}`);
           continue;

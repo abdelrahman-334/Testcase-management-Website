@@ -5,17 +5,18 @@ import {
   createTestSuite,
   updateTestSuite,
   deleteTestSuite,
-  getTestcasesInSuite
+  getTestcasesInSuite,
+  addTestcaseToSuite
 } from '../controllers/testsuiteController';
 
-const router = express.Router();
+const TestSuiteRouter = express.Router();
 
-router.get('/projects/:projectId/suites', getProjectTestSuites);
-router.get('/suites/:testSuiteId', getTestSuiteById);
-router.post('/projects/:projectId/suites', createTestSuite);
-router.put('/suites/:testSuiteId', updateTestSuite);
-router.delete('/suites/:testSuiteId', deleteTestSuite);
-router.get('/suites/:testSuiteId/testcases', getTestcasesInSuite);
+TestSuiteRouter.get('/projects/:projectId/suites', getProjectTestSuites);
+TestSuiteRouter.get('/suites/:testSuiteId', getTestSuiteById);
+TestSuiteRouter.post('/projects/:projectId/suites', createTestSuite);
+TestSuiteRouter.put('/suites/:testSuiteId', updateTestSuite);
+TestSuiteRouter.delete('/suites/:testSuiteId', deleteTestSuite);
+TestSuiteRouter.get('/suites/:testSuiteId/testcases', getTestcasesInSuite);
+TestSuiteRouter.put('/suites/:testSuiteId/testcases', addTestcaseToSuite);
 
-
-export default router;
+export default TestSuiteRouter;
